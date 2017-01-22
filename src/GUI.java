@@ -4,6 +4,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.UnknownHostException;
 
 /**
@@ -97,11 +99,11 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         /**
          * Set up a connection with the Acromag
          */
-        try {
-            this.controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
-        }catch (UnknownHostException error){
-            showErrorPopup(error);
-        }
+
+        statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
+        statusLabel.setForeground(Color.RED);
+        this.controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
+
 
     }
 
@@ -608,15 +610,20 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
 
                 }else{
 
-                    statusLabel.setText("Attempting to connect to " + controller.getAddress());
+                    statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
                     statusLabel.setForeground(Color.RED);
+
                     voltageReading.setString("- kV");
+                    voltageReading.setValue(0);
+
                     currentReading.setString("- mA");
+                    currentReading.setValue(0);
 
                     controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
                 }
             }
             catch (Exception error){
+                controller.disconnect();
                 showErrorPopup(error);
 
             }
@@ -755,6 +762,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
 
         Configuration.setMainWindowPosX(this.getX());
         Configuration.setMainWindowPosY(this.getY());
+
+        controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
     }
 
 
@@ -815,10 +824,17 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
     }
 
     private void showErrorPopup(String message, Exception error){
+        error.printStackTrace();
+
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        error.printStackTrace(pw);
+
         message += "\n\n";
-        message += error.getMessage();
+        message += sw.toString();
 
         JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+
     }
 
 

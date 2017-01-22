@@ -18,11 +18,18 @@ class Controller {
     private ModbusTCPMaster master;
 
 
-    Controller(String ipAddress, Integer port) throws UnknownHostException{
-        connection = new TCPMasterConnection(InetAddress.getByName(ipAddress));
-        connection.setPort(port);
+    Controller(String ipAddress, Integer port){
+        try {
+            connection = new TCPMasterConnection(InetAddress.getByName(ipAddress));
+            connection.setPort(port);
+            connection.connect();
 
-        master = new ModbusTCPMaster(ipAddress, port);
+            master = new ModbusTCPMaster(ipAddress, port);
+            master.connect();
+        }
+        catch (Exception e){
+
+        }
     }
 
     boolean isConnected(){
@@ -38,7 +45,7 @@ class Controller {
         master.disconnect();
     }
 
-    void setPowerSupplyEnable(boolean isOn) throws ModbusException {
+    void setPowerSupplyEnable(boolean isOn) throws Exception {
         if (isOn){
             setAcromagOutputVoltage(Configuration.getHvEnableChannel(), getReferenceVoltage());
         }else{
@@ -48,35 +55,35 @@ class Controller {
         }
     }
 
-    void setPowerSupplyVoltage(double voltage) throws ModbusException {
+    void setPowerSupplyVoltage(double voltage) throws Exception {
         double referenceMax = getReferenceVoltage();
         double acromagVoltage = (voltage / Configuration.getMaxPowerSupplyVoltage()) * referenceMax;
 
         setAcromagOutputVoltage(Configuration.getVoltageControlChannel(), acromagVoltage);
     }
 
-    void setPowerSupplyCurrent(double current) throws ModbusException {
+    void setPowerSupplyCurrent(double current) throws Exception {
         double referenceMax = getReferenceVoltage();
         double acromagVoltage = (current / Configuration.getMaxPowerSupplyCurrent()) * referenceMax;
 
         setAcromagOutputVoltage(Configuration.getCurrentControlChannel(), acromagVoltage);
     }
 
-    double getPowerSupplyVoltage() throws ModbusException {
+    double getPowerSupplyVoltage() throws Exception {
         double referenceMax = getReferenceVoltage();
         double acromagVoltage = getAcromagInputVoltage(Configuration.getVoltageMonitorChannel());
 
         return (acromagVoltage / referenceMax) * Configuration.getMaxPowerSupplyVoltage();
     }
 
-    double getPowerSupplyCurrent() throws ModbusException {
+    double getPowerSupplyCurrent() throws Exception {
         double referenceMax = getReferenceVoltage();
         double acromagVoltage = getAcromagInputVoltage(Configuration.getCurrentMonitorChannel());
 
         return (acromagVoltage / referenceMax) * Configuration.getMaxPowerSupplyCurrent();
     }
 
-    private double getReferenceVoltage() throws ModbusException {
+    private double getReferenceVoltage() throws Exception {
         // return 10.0;
         return getAcromagInputVoltage(Configuration.getReferenceVoltageChannel());
     }
@@ -86,7 +93,7 @@ class Controller {
      * Method that sets the voltage of the Acromag's output voltage channel corresponding to
      * the specified channelID. Actual addresses are hard coded in the AddressDictionary Class
      */
-    private double getAcromagInputVoltage(int channelID) throws ModbusException{
+    private double getAcromagInputVoltage(int channelID) throws Exception{
 
         /**
          * Get the addresses we need from the dictionary
@@ -126,7 +133,7 @@ class Controller {
      * Method that sets the voltage of the Acromag's output voltage channel corresponding to
      * the specified channelID. Actual addresses are hard coded in the AddressDictionary Class
      */
-    private void setAcromagOutputVoltage(int channelID, double voltage) throws ModbusException{
+    private void setAcromagOutputVoltage(int channelID, double voltage) throws Exception{
 
         /**
          * Get the addresses we need from the dictionary

@@ -8,7 +8,7 @@ import java.util.Scanner;
  */
 public class Configuration {
 
-    private static final File configFile = new File("../lib/config.cfg");
+    private static final File configFile = new File("./lib/config.cfg");
 
     private static String acromagIpAddress;
     private static Integer modbusPort;
