@@ -602,7 +602,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
                     currentFraction = Math.max(0, currentFraction);
                     currentFraction = Math.min(1, currentFraction);
 
-                    voltageReading.setString(String.format("%.2f kV", powerSupplyVoltage));
+                    voltageReading.setString(String.format("- %.2f kV", powerSupplyVoltage));
                     voltageReading.setValue((int) (VOLTAGE_RESOLUTION * voltageFraction));
 
                     currentReading.setString(String.format("%.2f mA", powerSupplyCurrent));
