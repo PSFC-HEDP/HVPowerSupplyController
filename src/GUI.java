@@ -678,6 +678,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
                     /**
                      * Attempt to establish a new connection
                      */
+                    controller.disconnect();
                     controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
                 }
 
