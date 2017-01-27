@@ -6,7 +6,6 @@ import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.net.UnknownHostException;
 
 /**
  * Created by lahmann on 2017-01-16.
@@ -20,6 +19,18 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
     private final int CURRENT_RESOLUTION = 1000;
 
     /**
+     * Number of cycles where we're willing to accept a discrepancy between our settings and our readings
+     * After this number is exceeded, a software interlock will be tripped
+     */
+    private final int NUM_POLL_PERIODS_BEFORE_INTERLOCK = 4;
+
+    /**
+     * The difference between our target voltage and our voltage we read that we consider to be non-suspicious
+     * If this difference is exceeded for too long a software interlock will be tripped
+     */
+    private final double ACCEPTABLE_VOLTAGE_DIFFERENCE = 1.0;       // kV
+
+    /**
      * Strings used to identify actions
      */
     private static final String ON_BUTTON_ACTION   = "ON_BUTTON_ACTION";
@@ -31,6 +42,11 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
      * Controller Object that interacts with the Acromag
      */
     private Controller controller;
+
+    /**
+     * State object (glorified struct) for the power supply state
+     */
+    private PowerSupplyState state;
 
     /**
      * Swing components of the main window (this GUI Object)
@@ -77,7 +93,6 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
      */
     private GUI(){
         super("HV Power Supply Controller");
-        Configuration.loadConfiguration();
         initialize();
         mainLoop();
     }
@@ -88,22 +103,29 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
      */
     private void initialize(){
 
+        Configuration.loadConfiguration();
+
         /**
          * Build the windows
          */
-
         buildMainWindow();
         buildSetVoltageWindow();
         buildConfigWindow();
 
+
         /**
          * Set up a connection with the Acromag
          */
-
         statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
         statusLabel.setForeground(Color.RED);
         this.controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
 
+
+        /**
+         * Initialize the power supply state
+         */
+        state = new PowerSupplyState();
+        state.setOff();
 
     }
 
@@ -581,56 +603,164 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
      */
     private void mainLoop(){
 
+        int interlockCounter = 0;
         while (this.isVisible()){
 
             try {
-
                 Thread.sleep(Configuration.getPollPeriod());
 
                 if (controller.isConnected()) {
 
-                    statusLabel.setText("Connected to " + controller.getAddress());
-                    statusLabel.setForeground(Color.BLACK);
+                    /**
+                     * Update our target settings
+                     */
+                    controller.setPowerSupplyEnable(state.isOn);
+                    controller.setPowerSupplyVoltage(state.voltageSetting);
+                    controller.setPowerSupplyCurrent(state.currentSetting);
 
-                    double powerSupplyVoltage = controller.getPowerSupplyVoltage();
-                    double voltageFraction = (powerSupplyVoltage / Configuration.getMaxPowerSupplyVoltage());
-                    voltageFraction = Math.max(0, voltageFraction);
-                    voltageFraction = Math.min(1, voltageFraction);
 
-                    double powerSupplyCurrent = controller.getPowerSupplyCurrent();
-                    double currentFraction = (powerSupplyCurrent / Configuration.getMaxPowerSupplyCurrent());
-                    currentFraction = Math.max(0, currentFraction);
-                    currentFraction = Math.min(1, currentFraction);
+                    /**
+                     * Get the readings from the Acromag and push them to the GUI
+                     */
+                    state.voltageReading = controller.getPowerSupplyVoltage();
+                    state.currentReading = controller.getPowerSupplyCurrent();
 
-                    voltageReading.setString(String.format("- %.2f kV", powerSupplyVoltage));
-                    voltageReading.setValue((int) (VOLTAGE_RESOLUTION * voltageFraction));
 
-                    currentReading.setString(String.format("%.2f mA", powerSupplyCurrent));
-                    currentReading.setValue((int) (CURRENT_RESOLUTION * currentFraction));
+                    /**
+                     * Verify that our reading matching our setting
+                     */
+                    boolean readingMatches = true;
+                    if (state.voltageReading + ACCEPTABLE_VOLTAGE_DIFFERENCE < state.voltageSetting){
+                        readingMatches = false;
+                    }else if (state.voltageReading - ACCEPTABLE_VOLTAGE_DIFFERENCE > state.voltageSetting){
+                        readingMatches = false;
+                    }
+
+
+                    /**
+                     * If the readings don't match, update our interlock counter
+                     */
+                    if (!readingMatches){
+                        interlockCounter++;
+                    }else{
+                        interlockCounter = 0;
+                    }
+
+
+                    /**
+                     * If the counter has reached our threshold throw an interlock
+                     */
+                    if (interlockCounter >= NUM_POLL_PERIODS_BEFORE_INTERLOCK){
+
+                        state.setOff();
+
+                        controller.setPowerSupplyEnable(state.isOn);
+                        controller.setPowerSupplyVoltage(state.voltageSetting);
+                        controller.setPowerSupplyCurrent(state.currentSetting);
+
+                        String message = "The voltage readings do not agree with what was attempted to be set.\n";
+                        message += "This is likely due to the door interlock being tripped.\n";
+                        message += "\n";
+                        message += "The HV Power Supply has been attempted to be turned off.\n";
+                        message += "To continue, please visually verify that all personal have evacuated the vault before clearing this message";
+
+                        JOptionPane.showMessageDialog(this, message, "Interlock Tripped!", JOptionPane.ERROR_MESSAGE);
+                    }
+
 
                 }else{
 
-                    statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
-                    statusLabel.setForeground(Color.RED);
+                    /**
+                     * Update state to be off so we can update it immediately when we connect
+                     */
+                    state.setOff();
 
-                    voltageReading.setString("- kV");
-                    voltageReading.setValue(0);
-
-                    currentReading.setString("- mA");
-                    currentReading.setValue(0);
-
+                    /**
+                     * Attempt to establish a new connection
+                     */
                     controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
                 }
+
+                updateGUI();
             }
             catch (Exception error){
                 controller.disconnect();
                 showErrorPopup(error);
 
             }
-
         }
 
     }
+
+    private void updateGUI(){
+
+        if (controller.isConnected()) {
+
+            /**
+             * Show that we are connected
+             */
+            statusLabel.setText("Connected to " + controller.getAddress());
+            statusLabel.setForeground(Color.BLACK);
+
+
+            /**
+             * Update the on/off "switch" based on the state of the system
+             */
+            onButton.setEnabled(!state.isOn);
+            onButton.setSelected(state.isOn);
+
+            offButton.setEnabled(state.isOn);
+            offButton.setSelected(!state.isOn);
+
+            setVoltageButton.setEnabled(state.isOn);
+            configButton.setEnabled(!state.isOn);
+
+            /**
+             * Update progress bar values
+             */
+
+            double voltageFraction = (state.voltageReading / Configuration.getMaxPowerSupplyVoltage());
+            voltageFraction = Math.max(0, voltageFraction);
+            voltageFraction = Math.min(1, voltageFraction);
+
+            double currentFraction = (state.currentReading / Configuration.getMaxPowerSupplyCurrent());
+            currentFraction = Math.max(0, currentFraction);
+            currentFraction = Math.min(1, currentFraction);
+
+            voltageReading.setString(String.format("- %.2f kV", state.voltageReading));
+            voltageReading.setValue((int) (VOLTAGE_RESOLUTION * voltageFraction));
+
+            currentReading.setString(String.format("%.2f mA", state.currentReading));
+            currentReading.setValue((int) (CURRENT_RESOLUTION * currentFraction));
+
+        }else{
+
+            /**
+             * Disable everything that's not config
+             */
+            onButton.setEnabled(false);
+            offButton.setEnabled(false);
+            setVoltageButton.setEnabled(false);
+
+
+            /**
+             * Show where we are attempting to connect to
+             */
+            statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
+            statusLabel.setForeground(Color.RED);
+
+
+            /**
+             * Show the user that we have no true values to read
+             */
+            voltageReading.setString("- kV");
+            voltageReading.setValue(0);
+
+            currentReading.setString("- mA");
+            currentReading.setValue(0);
+        }
+    }
+
 
 
 
@@ -658,20 +788,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
 
     private void onButtonClicked(){
         if (controller.isConnected()) {
-            try {
-                controller.setPowerSupplyEnable(true);
-            } catch (Exception error) {
-                showErrorPopup(error);
-
-            }
-
-            onButton.setEnabled(false);
-
-            offButton.setEnabled(true);
-            offButton.setSelected(false);
-
-            setVoltageButton.setEnabled(true);
-            configButton.setEnabled(false);
+            state.setOn();
+            updateGUI();
         }else{
             onButton.setSelected(false);
         }
@@ -679,19 +797,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
 
     private void offButtonClicked(){
         if (controller.isConnected()) {
-            try {
-                controller.setPowerSupplyEnable(false);
-            } catch (Exception error) {
-                showErrorPopup(error);
-            }
-
-            offButton.setEnabled(false);
-
-            onButton.setEnabled(true);
-            onButton.setSelected(false);
-
-            setVoltageButton.setEnabled(false);
-            configButton.setEnabled(true);
+            state.setOff();
+            updateGUI();
         }else {
             offButton.setSelected(false);
         }
@@ -705,18 +812,10 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
 
             if (result == JOptionPane.OK_OPTION) {
 
-                try {
+                state.voltageSetting = Double.valueOf(targetVoltageSpinner.getValue().toString());
+                state.currentSetting = Double.valueOf(targetCurrentSpinner.getValue().toString());
+                updateGUI();
 
-                    double voltage = Double.valueOf(targetVoltageSpinner.getValue().toString());
-                    controller.setPowerSupplyVoltage(voltage);
-
-                    double current = Double.valueOf(targetCurrentSpinner.getValue().toString());
-                    controller.setPowerSupplyCurrent(current);
-
-                } catch (Exception error) {
-                    showErrorPopup(error);
-
-                }
             }
         }
     }
@@ -835,6 +934,31 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
 
         JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
 
+    }
+
+
+    /**
+     * Glorified struct to act as our "state machine"
+     */
+    class PowerSupplyState{
+
+        boolean isOn;
+
+        double voltageSetting;
+        double currentSetting;
+
+        double voltageReading;
+        double currentReading;
+
+        void setOn(){
+            isOn = true;
+        }
+
+        void setOff(){
+            isOn = false;
+            voltageSetting = 0.0;
+            currentSetting = 0.0;
+        }
     }
 
 

@@ -1,4 +1,3 @@
-import net.wimpi.modbus.ModbusException;
 import net.wimpi.modbus.facade.ModbusTCPMaster;
 import net.wimpi.modbus.net.TCPMasterConnection;
 import net.wimpi.modbus.procimg.InputRegister;
@@ -6,7 +5,6 @@ import net.wimpi.modbus.procimg.Register;
 import net.wimpi.modbus.procimg.SimpleRegister;
 
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 /**
  * Created by lahmann on 2017-01-16.
@@ -14,6 +12,8 @@ import java.net.UnknownHostException;
 class Controller {
 
     private final int MAX_DATA_VALUE = 30000;
+    private final double MIN_ACCEPTABLE_REFERNCE_VOLTAGE = 9.0;
+
     private TCPMasterConnection connection;
     private ModbusTCPMaster master;
 
@@ -32,8 +32,16 @@ class Controller {
         }
     }
 
+    /**
+     * This function checks to see if there's a connection be checking the reference voltage value
+     * If the reference voltage value can't be read or is too low, the connection cannot be considered reliable
+     */
     boolean isConnected(){
-        return connection.isConnected();
+        try {
+            return (getReferenceVoltage() > MIN_ACCEPTABLE_REFERNCE_VOLTAGE);
+        }catch (Exception error){
+            return false;
+        }
     }
 
     String getAddress(){

@@ -1,4 +1,5 @@
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Scanner;
@@ -6,35 +7,36 @@ import java.util.Scanner;
 /**
  * Created by lahmann on 2017-01-17.
  */
-public class Configuration {
+class Configuration {
 
     private static final File configFile = new File("./lib/config.cfg");
+    //private static final File configFile = new File("/leia/HVPowerSupplyController/lib/config.cfg");
 
-    private static String acromagIpAddress;
-    private static Integer modbusPort;
-    private static Integer pollPeriod;
+    private static String acromagIpAddress = "192.168.100.57";
+    private static Integer modbusPort = 502;
+    private static Integer pollPeriod = 1000;
     
-    private static Integer referenceVoltageChannel;
-    private static Integer voltageMonitorChannel;
-    private static Integer currentMonitorChannel;
+    private static Integer referenceVoltageChannel = 0;
+    private static Integer voltageMonitorChannel = 1;
+    private static Integer currentMonitorChannel = 2;
     
-    private static Integer hvEnableChannel;
-    private static Integer voltageControlChannel;
-    private static Integer currentControlChannel;
+    private static Integer hvEnableChannel = 0;
+    private static Integer voltageControlChannel = 1;
+    private static Integer currentControlChannel = 2;
     
-    private static Double maxPowerSupplyVoltage;    // kV
-    private static Double maxPowerSupplyCurrent;    // mA
+    private static Double maxPowerSupplyVoltage = 50.0;     // kV
+    private static Double maxPowerSupplyCurrent = 1.5;      // mA
     
-    private static Integer mainWindowPosX;
-    private static Integer mainWindowPosY;
+    private static Integer mainWindowPosX = 100;
+    private static Integer mainWindowPosY = 100;
 
-    protected static void loadConfiguration(){
+    static void loadConfiguration(){
 
         try {
             Scanner s = new Scanner(configFile);
             s.useDelimiter(";|\\n");
 
-            while (s.hasNext()){
+            while (s.hasNext()) {
 
                 switch (s.next()) {
                     case "acromagIpAddress":
@@ -79,21 +81,15 @@ public class Configuration {
                 }
             }
         }
-
-        catch (IOException exception){
-
-            System.err.println("Program could not located the config file.");
-            System.err.println("It was expected to be at " + configFile.getAbsolutePath());
-            System.err.println("Closing...");
-            System.exit(-1);
-
+        catch (FileNotFoundException e){
+            /**
+             * If we can't find the file, we'll just use the hard coded defaults
+             */
         }
-
-
 
     }
 
-    protected static void writeConfiguration(){
+    static void writeConfiguration(){
 
         try {
             FileWriter w = new FileWriter(configFile);
@@ -124,107 +120,107 @@ public class Configuration {
 
     }
 
-    protected static String getAcromagIpAddress() {
+    static String getAcromagIpAddress() {
         return acromagIpAddress;
     }
 
-    protected static Integer getModbusPort() {
+    static Integer getModbusPort() {
         return modbusPort;
     }
 
-    protected static Integer getPollPeriod() {
+    static Integer getPollPeriod() {
         return pollPeriod;
     }
 
-    protected static Integer getReferenceVoltageChannel() {
+    static Integer getReferenceVoltageChannel() {
         return referenceVoltageChannel;
     }
 
-    protected static Integer getVoltageMonitorChannel() {
+    static Integer getVoltageMonitorChannel() {
         return voltageMonitorChannel;
     }
 
-    protected static Integer getCurrentMonitorChannel() {
+    static Integer getCurrentMonitorChannel() {
         return currentMonitorChannel;
     }
 
-    protected static Integer getHvEnableChannel() {
+    static Integer getHvEnableChannel() {
         return hvEnableChannel;
     }
 
-    protected static Integer getVoltageControlChannel() {
+    static Integer getVoltageControlChannel() {
         return voltageControlChannel;
     }
 
-    protected static Integer getCurrentControlChannel() {
+    static Integer getCurrentControlChannel() {
         return currentControlChannel;
     }
 
-    protected static Double getMaxPowerSupplyVoltage() {
+    static Double getMaxPowerSupplyVoltage() {
         return maxPowerSupplyVoltage;
     }
 
-    protected static Double getMaxPowerSupplyCurrent() {
+    static Double getMaxPowerSupplyCurrent() {
         return maxPowerSupplyCurrent;
     }
 
-    protected static Integer getMainWindowPosX() {
+    static Integer getMainWindowPosX() {
         return mainWindowPosX;
     }
 
-    protected static Integer getMainWindowPosY() {
+    static Integer getMainWindowPosY() {
         return mainWindowPosY;
     }
 
-    public static void setAcromagIpAddress(String acromagIpAddress) {
+    static void setAcromagIpAddress(String acromagIpAddress) {
         Configuration.acromagIpAddress = acromagIpAddress;
     }
 
-    public static void setModbusPort(Integer modbusPort) {
+    static void setModbusPort(Integer modbusPort) {
         Configuration.modbusPort = modbusPort;
     }
 
-    public static void setPollPeriod(Integer pollPeriod) {
+    static void setPollPeriod(Integer pollPeriod) {
         Configuration.pollPeriod = pollPeriod;
     }
 
-    public static void setReferenceVoltageChannel(Integer referenceVoltageChannel) {
+    static void setReferenceVoltageChannel(Integer referenceVoltageChannel) {
         Configuration.referenceVoltageChannel = referenceVoltageChannel;
     }
 
-    public static void setVoltageMonitorChannel(Integer voltageMonitorChannel) {
+    static void setVoltageMonitorChannel(Integer voltageMonitorChannel) {
         Configuration.voltageMonitorChannel = voltageMonitorChannel;
     }
 
-    public static void setCurrentMonitorChannel(Integer currentMonitorChannel) {
+    static void setCurrentMonitorChannel(Integer currentMonitorChannel) {
         Configuration.currentMonitorChannel = currentMonitorChannel;
     }
 
-    public static void setHvEnableChannel(Integer hvEnableChannel) {
+    static void setHvEnableChannel(Integer hvEnableChannel) {
         Configuration.hvEnableChannel = hvEnableChannel;
     }
 
-    public static void setVoltageControlChannel(Integer voltageControlChannel) {
+    static void setVoltageControlChannel(Integer voltageControlChannel) {
         Configuration.voltageControlChannel = voltageControlChannel;
     }
 
-    public static void setCurrentControlChannel(Integer currentControlChannel) {
+    static void setCurrentControlChannel(Integer currentControlChannel) {
         Configuration.currentControlChannel = currentControlChannel;
     }
 
-    public static void setMaxPowerSupplyVoltage(Double maxPowerSupplyVoltage) {
+    static void setMaxPowerSupplyVoltage(Double maxPowerSupplyVoltage) {
         Configuration.maxPowerSupplyVoltage = maxPowerSupplyVoltage;
     }
 
-    public static void setMaxPowerSupplyCurrent(Double maxPowerSupplyCurrent) {
+    static void setMaxPowerSupplyCurrent(Double maxPowerSupplyCurrent) {
         Configuration.maxPowerSupplyCurrent = maxPowerSupplyCurrent;
     }
 
-    public static void setMainWindowPosX(Integer mainWindowPosX) {
+    static void setMainWindowPosX(Integer mainWindowPosX) {
         Configuration.mainWindowPosX = mainWindowPosX;
     }
 
-    public static void setMainWindowPosY(Integer mainWindowPosY) {
+    static void setMainWindowPosY(Integer mainWindowPosY) {
         Configuration.mainWindowPosY = mainWindowPosY;
     }
 }

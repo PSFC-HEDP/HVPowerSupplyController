@@ -1,7 +1,7 @@
 /**
  * Created by lahmann on 2017-01-16.
  */
-public class AddressDictionary {
+class AddressDictionary {
 
     private final static int[] INPUT_CHANNEL_CONFIG_ADDRESS = {
             0x0003, 0x0004, 0x0005, 0x0006,
@@ -30,19 +30,19 @@ public class AddressDictionary {
             0x016A, 0x016B, 0x016C, 0x016D
     };
 
-    protected static int getInputChannelConfigAddress(int channel) {
+    static int getInputChannelConfigAddress(int channel) {
         return INPUT_CHANNEL_CONFIG_ADDRESS[channel];
     }
 
-    protected static int getInputChannelDataAddress(int channel) {
+    static int getInputChannelDataAddress(int channel) {
         return INPUT_CHANNEL_DATA_ADDRESS[channel];
     }
 
-    protected static int getOutputChannelConfigAddress(int channel) {
+    static int getOutputChannelConfigAddress(int channel) {
         return OUTPUT_CHANNEL_CONFIG_ADDRESS[channel];
     }
 
-    protected static int getOutputChannelDataAddress(int channel) {
+    static int getOutputChannelDataAddress(int channel) {
         return OUTPUT_CHANNEL_DATA_ADDRESS[channel];
     }
 }
