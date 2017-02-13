@@ -28,7 +28,8 @@ class Controller {
             master.connect();
         }
         catch (Exception e){
-
+            connection.close();
+            master.disconnect();
         }
     }
 
@@ -37,11 +38,14 @@ class Controller {
      * If the reference voltage value can't be read or is too low, the connection cannot be considered reliable
      */
     boolean isConnected(){
-        try {
-            return (getReferenceVoltage() > MIN_ACCEPTABLE_REFERNCE_VOLTAGE);
-        }catch (Exception error){
-            return false;
+        if (connection.isConnected()) {
+            try {
+                return (getReferenceVoltage() > MIN_ACCEPTABLE_REFERNCE_VOLTAGE);
+            } catch (Exception error) {
+                return false;
+            }
         }
+        return false;
     }
 
     String getAddress(){
