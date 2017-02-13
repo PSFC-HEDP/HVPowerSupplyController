@@ -118,6 +118,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
          */
         statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
         statusLabel.setForeground(Color.RED);
+        System.out.println(Configuration.getMainWindowPosX() + " " + Configuration.getMainWindowPosY());
         this.controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
 
 
