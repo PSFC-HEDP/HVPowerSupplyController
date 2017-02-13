@@ -249,9 +249,10 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
          * Set up the window
          */
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        addWindowListener(this);
+        setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
         setResizable(false);
         setVisible(true);
-        addWindowListener(this);
         System.out.println(Configuration.getMainWindowPosX() + " " + Configuration.getMainWindowPosY());
 
 
