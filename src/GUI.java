@@ -22,7 +22,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
      * Number of cycles where we're willing to accept a discrepancy between our settings and our readings
      * After this number is exceeded, a software interlock will be tripped
      */
-    private final int NUM_POLL_PERIODS_BEFORE_INTERLOCK = 4;
+    private final int NUM_POLL_PERIODS_BEFORE_INTERLOCK = 10;
 
     /**
      * The difference between our target voltage and our voltage we read that we consider to be non-suspicious
