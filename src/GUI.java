@@ -607,6 +607,9 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         while (this.isVisible()){
 
             try {
+                /**
+                 * Pause between polls
+                 */
                 Thread.sleep(Configuration.getPollPeriod());
 
                 if (controller.isConnected()) {

@@ -9,8 +9,8 @@ import java.util.Scanner;
  */
 class Configuration {
 
-    //private static final File configFile = new File("./lib/config.cfg");
-    private static final File configFile = new File("/leia/HVPowerSupplyController/lib/config.cfg");
+    private static final File configFile = new File("./lib/config.cfg");
+    //private static final File configFile = new File("/leia/HVPowerSupplyController/lib/config.cfg");
 
     private static String acromagIpAddress = "192.168.100.57";
     private static Integer modbusPort = 502;
