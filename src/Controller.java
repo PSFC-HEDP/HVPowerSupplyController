@@ -12,7 +12,7 @@ import java.net.InetAddress;
 class Controller {
 
     private final int MAX_DATA_VALUE = 30000;
-    private final double MIN_ACCEPTABLE_REFERNCE_VOLTAGE = 9.0;
+    private final double MIN_ACCEPTABLE_REFERENCE_VOLTAGE = 9.0;
 
     private TCPMasterConnection connection;
     private ModbusTCPMaster master;
@@ -38,9 +38,10 @@ class Controller {
      * If the reference voltage value can't be read or is too low, the connection cannot be considered reliable
      */
     boolean isConnected(){
+        System.out.println(connection.isConnected());
         if (connection.isConnected()) {
             try {
-                return (getReferenceVoltage() > MIN_ACCEPTABLE_REFERNCE_VOLTAGE);
+                return (getReferenceVoltage() > MIN_ACCEPTABLE_REFERENCE_VOLTAGE);
             } catch (Exception error) {
                 return false;
             }
