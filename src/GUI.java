@@ -251,9 +251,10 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
          * Add the component pane to this frame
          */
         add(mainWindowPanel);
+        setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
         pack();
 
-        setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
+
     }
 
     private void buildSetVoltageWindow(){
