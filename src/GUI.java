@@ -130,15 +130,6 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
     }
 
     private void buildMainWindow(){
-        /**
-         * Set up the window
-         */
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        setResizable(false);
-        setVisible(true);
-        addWindowListener(this);
-        System.out.println(Configuration.getMainWindowPosX() + " " + Configuration.getMainWindowPosY());
-
 
         /**
          * Create the component panel
@@ -251,8 +242,17 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
          * Add the component pane to this frame
          */
         add(mainWindowPanel);
-        setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
         pack();
+
+
+        /**
+         * Set up the window
+         */
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setResizable(false);
+        setVisible(true);
+        addWindowListener(this);
+        System.out.println(Configuration.getMainWindowPosX() + " " + Configuration.getMainWindowPosY());
 
 
     }
