@@ -38,7 +38,6 @@ class Controller {
      * If the reference voltage value can't be read or is too low, the connection cannot be considered reliable
      */
     boolean isConnected(){
-        System.out.println(connection.isConnected());
         if (connection.isConnected()) {
             try {
                 return (getReferenceVoltage() > MIN_ACCEPTABLE_REFERENCE_VOLTAGE);

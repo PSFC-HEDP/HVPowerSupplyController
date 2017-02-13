@@ -253,8 +253,6 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
         setResizable(false);
         setVisible(true);
-        System.out.println(Configuration.getMainWindowPosX() + " " + Configuration.getMainWindowPosY());
-
 
     }
 
