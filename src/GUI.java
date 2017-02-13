@@ -138,7 +138,6 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         setVisible(true);
         addWindowListener(this);
         System.out.println(Configuration.getMainWindowPosX() + " " + Configuration.getMainWindowPosY());
-        setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
 
 
         /**
@@ -253,6 +252,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
          */
         add(mainWindowPanel);
         pack();
+
+        setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
     }
 
     private void buildSetVoltageWindow(){
