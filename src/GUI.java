@@ -667,11 +667,15 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
                 Thread.sleep(Configuration.getPollPeriod());
 
                 // TODO: Generalize this
-                double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getText()));
-                controller.setAcromagOutputVoltage(12, voltage);
+                try {
+                    double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getText()));
+                    controller.setAcromagOutputVoltage(12, voltage);
 
-                voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getText()));
-                controller.setAcromagOutputVoltage(13, voltage);
+                    voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getText()));
+                    controller.setAcromagOutputVoltage(13, voltage);
+                }catch (Exception e){
+                    // Do nothing
+                }
 
                 if (controller.isConnected()) {
 
@@ -778,7 +782,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
             offButton.setSelected(!state.isOn);
 
             setVoltageButton.setEnabled(state.isOn);
-            configButton.setEnabled(!state.isOn);
+            configButton.setEnabled(true);
+            //configButton.setEnabled(!state.isOn);
 
             /**
              * Update progress bar values
