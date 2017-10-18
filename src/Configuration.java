@@ -16,7 +16,7 @@ class Configuration {
     private static Integer modbusPort = 502;
     private static Integer pollPeriod = 1000;
     
-    private static Integer referenceVoltageChannel = 0;
+    private static Integer referenceVoltageChannel = 8;
     private static Integer voltageMonitorChannel = 1;
     private static Integer currentMonitorChannel = 2;
     
