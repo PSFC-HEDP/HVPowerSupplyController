@@ -784,6 +784,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
             setVoltageButton.setEnabled(state.isOn);
             configButton.setEnabled(true);
             //configButton.setEnabled(!state.isOn);
+            //
 
             /**
              * Update progress bar values
