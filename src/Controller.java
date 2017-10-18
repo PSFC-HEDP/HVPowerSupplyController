@@ -145,7 +145,8 @@ class Controller {
      * Method that sets the voltage of the Acromag's output voltage channel corresponding to
      * the specified channelID. Actual addresses are hard coded in the AddressDictionary Class
      */
-    private void setAcromagOutputVoltage(int channelID, double voltage) throws Exception{
+    // TODO: Make this private
+    public void setAcromagOutputVoltage(int channelID, double voltage) throws Exception{
 
         /**
          * Get the addresses we need from the dictionary

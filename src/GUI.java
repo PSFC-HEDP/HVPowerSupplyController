@@ -71,6 +71,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
     private JTextField[] ipAddressFields = new JTextField[4];
     private JTextField modbusPortField, pollPeriodField;
     private JTextField maxVoltageField, maxCurrentField;
+    private JTextField channel12VoltageField, channel13VoltageField;
+
     private JSpinner referenceVoltageChannelSpinner;
     private JSpinner voltageMonitorChannelSpinner;
     private JSpinner currentMonitorChannelSpinner;
@@ -596,6 +598,56 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         currentHeight++;
 
 
+        // TODO: GENERALIZE EVERYTHING BELOW
+        /**
+         * Build "Manual Channel Set" separator
+         */
+
+        setConstraints(0, currentHeight, 5, 1);
+        setPadding(10, 10, 10, 0);
+        configPanel.add(new JLabel("Manual Channel Settings", JLabel.RIGHT), constraints);
+        currentHeight++;
+
+        setConstraints(0, currentHeight, 5, 1);
+        setPadding(10, 10, 0, 0);
+        configPanel.add(new JSeparator(), constraints);
+        currentHeight++;
+
+
+        /**
+         * Build "Channel 12 Voltage" Text Field
+         */
+
+        setConstraints(0, currentHeight, 1, 1);
+        setPadding(10, 10, 5, 5);
+        configPanel.add(new JLabel("Channel 12 (V) : ", JLabel.RIGHT), constraints);
+
+        setConstraints(1, currentHeight, 1, 1);
+        setPadding(10, 0, 5, 5);
+        channel12VoltageField = new JTextField(Double.toString(0.0));
+        channel12VoltageField.setHorizontalAlignment(JTextField.CENTER);
+        channel12VoltageField.setPreferredSize(new Dimension(40, 30));
+        configPanel.add(channel12VoltageField, constraints);
+        currentHeight++;
+
+
+        /**
+         * Build "Channel 13 Voltage" Text Field
+         */
+
+        setConstraints(0, currentHeight, 1, 1);
+        setPadding(10, 10, 5, 5);
+        configPanel.add(new JLabel("Channel 13 (V) : ", JLabel.RIGHT), constraints);
+
+        setConstraints(1, currentHeight, 1, 1);
+        setPadding(10, 0, 5, 5);
+        channel13VoltageField = new JTextField(Double.toString(0.0));
+        channel13VoltageField.setHorizontalAlignment(JTextField.CENTER);
+        channel13VoltageField.setPreferredSize(new Dimension(40, 30));
+        configPanel.add(channel13VoltageField, constraints);
+        currentHeight++;
+
+
     }
 
 
@@ -622,6 +674,13 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
                     controller.setPowerSupplyEnable(state.isOn);
                     controller.setPowerSupplyVoltage(state.voltageSetting);
                     controller.setPowerSupplyCurrent(state.currentSetting);
+
+                    // TODO: Generalize this
+                    double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getSelectedText()));
+                    controller.setAcromagOutputVoltage(12, voltage);
+
+                    voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getSelectedText()));
+                    controller.setAcromagOutputVoltage(13, voltage);
 
 
                     /**
