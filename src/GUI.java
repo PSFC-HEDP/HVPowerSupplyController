@@ -666,6 +666,13 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
                  */
                 Thread.sleep(Configuration.getPollPeriod());
 
+                // TODO: Generalize this
+                double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getSelectedText()));
+                controller.setAcromagOutputVoltage(12, voltage);
+
+                voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getSelectedText()));
+                controller.setAcromagOutputVoltage(13, voltage);
+
                 if (controller.isConnected()) {
 
                     /**
@@ -674,13 +681,6 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
                     controller.setPowerSupplyEnable(state.isOn);
                     controller.setPowerSupplyVoltage(state.voltageSetting);
                     controller.setPowerSupplyCurrent(state.currentSetting);
-
-                    // TODO: Generalize this
-                    double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getSelectedText()));
-                    controller.setAcromagOutputVoltage(12, voltage);
-
-                    voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getSelectedText()));
-                    controller.setAcromagOutputVoltage(13, voltage);
 
 
                     /**
