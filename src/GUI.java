@@ -667,10 +667,10 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
                 Thread.sleep(Configuration.getPollPeriod());
 
                 // TODO: Generalize this
-                double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getSelectedText()));
+                double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getText()));
                 controller.setAcromagOutputVoltage(12, voltage);
 
-                voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getSelectedText()));
+                voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getText()));
                 controller.setAcromagOutputVoltage(13, voltage);
 
                 if (controller.isConnected()) {
