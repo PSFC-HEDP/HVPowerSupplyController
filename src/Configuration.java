@@ -23,9 +23,11 @@ class Configuration {
     private static Integer hvEnableChannel = 0;
     private static Integer voltageControlChannel = 1;
     private static Integer currentControlChannel = 2;
+
+    private static Integer ldEnableChannel         = 12;
+    private static Integer ldCurrentControlChannel = 13;
     
-    private static Double maxPowerSupplyVoltage = 50.0;     // kV
-    private static Double maxPowerSupplyCurrent = 1.5;      // mA
+    private static Double maxAllowablePowerSupplyVoltage = 35.0;
     
     private static Integer mainWindowPosX = 100;
     private static Integer mainWindowPosY = 100;
@@ -63,14 +65,17 @@ class Configuration {
                     case "voltageControlChannel":
                         voltageControlChannel = Integer.valueOf(s.next());
                         break;
+                    case "ldEnableChannel":
+                        ldEnableChannel = Integer.valueOf(s.next());
+                        break;
+                    case "ldCurrentControlChannel":
+                        ldCurrentControlChannel = Integer.valueOf(s.next());
+                        break;
                     case "currentControlChannel":
                         currentControlChannel = Integer.valueOf(s.next());
                         break;
-                    case "maxPowerSupplyVoltage":
-                        maxPowerSupplyVoltage = Double.valueOf(s.next());
-                        break;
-                    case "maxPowerSupplyCurrent":
-                        maxPowerSupplyCurrent = Double.valueOf(s.next());
+                    case "maxAllowablePowerSupplyVoltage":
+                        maxAllowablePowerSupplyVoltage = Double.valueOf(s.next());
                         break;
                     case "mainWindowPosX":
                         mainWindowPosX = Integer.valueOf(s.next());
@@ -106,8 +111,10 @@ class Configuration {
             w.write("\nvoltageControlChannel;" + voltageControlChannel);
             w.write("\ncurrentControlChannel;" + currentControlChannel);
 
-            w.write("\nmaxPowerSupplyVoltage;" + maxPowerSupplyVoltage);
-            w.write("\nmaxPowerSupplyCurrent;" + maxPowerSupplyCurrent);
+            w.write( "\nldEnableChannel;" + ldEnableChannel);
+            w.write( "\nldCurrentControlChannel;" + ldCurrentControlChannel);
+
+            w.write("\nmaxAllowablePowerSupplyVoltage;" + maxAllowablePowerSupplyVoltage);
 
             w.write("\nmainWindowPosX;" + mainWindowPosX);
             w.write("\nmainWindowPosY;" + mainWindowPosY);
@@ -156,12 +163,16 @@ class Configuration {
         return currentControlChannel;
     }
 
-    static Double getMaxPowerSupplyVoltage() {
-        return maxPowerSupplyVoltage;
+    static Integer getLdEnableChannel() {
+        return ldEnableChannel;
     }
 
-    static Double getMaxPowerSupplyCurrent() {
-        return maxPowerSupplyCurrent;
+    static Integer getLdCurrentControlChannel() {
+        return ldCurrentControlChannel;
+    }
+
+    static Double getMaxAllowablePowerSupplyVoltage() {
+        return maxAllowablePowerSupplyVoltage;
     }
 
     static Integer getMainWindowPosX() {
@@ -208,12 +219,16 @@ class Configuration {
         Configuration.currentControlChannel = currentControlChannel;
     }
 
-    static void setMaxPowerSupplyVoltage(Double maxPowerSupplyVoltage) {
-        Configuration.maxPowerSupplyVoltage = maxPowerSupplyVoltage;
+    static void setLdEnableChannel(Integer ldEnableChannel) {
+        Configuration.ldEnableChannel = ldEnableChannel;
     }
 
-    static void setMaxPowerSupplyCurrent(Double maxPowerSupplyCurrent) {
-        Configuration.maxPowerSupplyCurrent = maxPowerSupplyCurrent;
+    static void setLdCurrentControlChannel(Integer ldCurrentControlChannel) {
+        Configuration.ldCurrentControlChannel = ldCurrentControlChannel;
+    }
+
+    static void setMaxAllowablePowerSupplyVoltage(Double maxAllowablePowerSupplyVoltage) {
+        Configuration.maxAllowablePowerSupplyVoltage = maxAllowablePowerSupplyVoltage;
     }
 
     static void setMainWindowPosX(Integer mainWindowPosX) {

@@ -1,7 +1,16 @@
+
 /**
- * Created by lahmann on 2017-01-16.
+ * Static class that simply hold the memory addresses of the ES2152 Acromag
+ * See pages 73-92 of the user manual for reference
  */
-class AddressDictionary {
+class Constants {
+
+    private static Double POWER_SUPPLY_MAX_VOLTAGE = 50.0;  // kV
+    private static Double POWER_SUPPLY_MAX_CURRENT = 1.5;   // mA
+
+    private static Double LASER_DIODE_ON_VOLTAGE  = 4.0;    // V
+    private static Double LASER_DIODE_MAX_CURRENT = 20.0;   // mA
+    private static Double VOLTAGE_PER_LD_CURRENT  = 0.01;   // V per mA
 
     private final static int[] INPUT_CHANNEL_CONFIG_ADDRESS = {
             0x0003, 0x0004, 0x0005, 0x0006,
@@ -29,6 +38,26 @@ class AddressDictionary {
             0x0166, 0x0167, 0x0168, 0x0169,
             0x016A, 0x016B, 0x016C, 0x016D
     };
+
+    static Double getPowerSupplyMaxVoltage() {
+        return POWER_SUPPLY_MAX_VOLTAGE;
+    }
+
+    static Double getPowerSupplyMaxCurrent() {
+        return POWER_SUPPLY_MAX_CURRENT;
+    }
+
+    static Double getLaserDiodeOnVoltage() {
+        return LASER_DIODE_ON_VOLTAGE;
+    }
+
+    static Double getLaserDiodeMaxCurrent() {
+        return LASER_DIODE_MAX_CURRENT;
+    }
+
+    static Double getVoltagePerLdCurrent() {
+        return VOLTAGE_PER_LD_CURRENT;
+    }
 
     static int getInputChannelConfigAddress(int channel) {
         return INPUT_CHANNEL_CONFIG_ADDRESS[channel];

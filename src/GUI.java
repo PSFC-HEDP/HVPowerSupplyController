@@ -1,77 +1,64 @@
+
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
- * Created by lahmann on 2017-01-16.
+ * Main class the implements the GUI for the HVPS Controller
+ *
  */
-public class GUI extends JFrame implements WindowListener, ActionListener{
+public class GUI extends JFrame implements WindowListener{
 
-    /**
-     * Number of points on the progress bars that represent the readings
-     */
-    private final int VOLTAGE_RESOLUTION = 1000;
-    private final int CURRENT_RESOLUTION = 1000;
+    // Contact information of the current software maintainer
+    private final String AUTHOR_CONTACT = "Brandon Lahmann (lahmann@mit.edu)";
 
-    /**
-     * Number of cycles where we're willing to accept a discrepancy between our settings and our readings
-     * After this number is exceeded, a software interlock will be tripped
-     */
+    // Number of points on the progress bars that represent the readings
+    private final int PROGRESS_BAR_RESOLUTION = 1000;
+
+    // Number of cycles where we're willing to accept a discrepancy between our settings and our readings
+    // After this number is exceeded, a software interlock will be tripped
     private final int NUM_POLL_PERIODS_BEFORE_INTERLOCK = 10;
 
-    /**
-     * The difference between our target voltage and our voltage we read that we consider to be non-suspicious
-     * If this difference is exceeded for too long a software interlock will be tripped
-     */
+    // The difference between our target voltage and our voltage we read that we consider to be non-suspicious
+    // If this difference is exceeded for too long a software interlock will be tripped
     private final double ACCEPTABLE_VOLTAGE_DIFFERENCE = 1.0;       // kV
 
-    /**
-     * Strings used to identify actions
-     */
-    private static final String ON_BUTTON_ACTION   = "ON_BUTTON_ACTION";
-    private static final String OFF_BUTTON_ACTION  = "OFF_BUTTON_ACTION";
-    private static final String SET_VOLTAGE_ACTION = "SET_VOLTAGE_ACTION";
-    private static final String CONFIG_ACTION      = "CONFIG_ACTION";
+    // Preset quick condition times in minutes
+    private final int[] QUICK_CONDITION_TIMES = new int[] {5, 10, 15, 30, 60};
 
-    /**
-     * Controller Object that interacts with the Acromag
-     */
-    private Controller controller;
+    // Controller that interacts with the Acromag
+    private AcromagController controller = new AcromagController();
 
-    /**
-     * State object (glorified struct) for the power supply state
-     */
-    private PowerSupplyState state;
+    // Internal state objects
+    private PowerSupplyState hvState = new PowerSupplyState();
+    private LaserDiodeState  ldState = new LaserDiodeState();
 
-    /**
-     * Swing components of the main window (this GUI Object)
-     */
-    private JPanel mainWindowPanel;
+    // Swing components of the main window (this GUI Object)
     private GridBagConstraints constraints;
-    private JToggleButton onButton, offButton;
-    private JButton setVoltageButton, configButton;
-    private JProgressBar voltageReading, currentReading;
+    private JMenu quickConditionMenu;
+    private JMenuItem configurationMenuItem;
+    private JToggleButton hvOnButton, hvOffButton, ldOnButton, ldOffButton;
+    private JButton setVoltageButton, setLdCurrentButton, abortConditionButton;
+    private JProgressBar voltageReading, currentReading, ldCurrentReading;
     private JLabel statusLabel;
 
-    /**
-     * Swing components of the Set Voltage window
-     */
+    // Swing components of the Set Voltage window
     private JPanel setVoltagePanel;
-    private JSpinner targetVoltageSpinner, targetCurrentSpinner;
+    private JSpinner targetVoltageSpinner;
 
-    /**
-     * Swing components of the Configuration window
-     */
+    // Swing components of the Set LD Current window
+    private JPanel setDiodeCurrentPanel;
+    private JSpinner targetDiodeCurrentSpinner;
+
+    // Swing components of the Configuration window
     private JPanel configPanel;
     private JTextField[] ipAddressFields = new JTextField[4];
     private JTextField modbusPortField, pollPeriodField;
-    private JTextField maxVoltageField, maxCurrentField;
-    private JTextField channel12VoltageField, channel13VoltageField;
+    private JTextField maxVoltageField;
 
     private JSpinner referenceVoltageChannelSpinner;
     private JSpinner voltageMonitorChannelSpinner;
@@ -79,6 +66,8 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
     private JSpinner hvEnableChannelSpinner;
     private JSpinner voltageControlChannelSpinner;
     private JSpinner currentControlChannelSpinner;
+    private JSpinner ldEnableChannelSpinner;
+    private JSpinner ldCurrentControlChannelSpinner;
 
 
 
@@ -105,160 +94,258 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
      */
     private void initialize(){
 
+        // Load the configuration
         Configuration.loadConfiguration();
 
-        /**
-         * Build the windows
-         */
+        // Build the windows
         buildMainWindow();
-        buildSetVoltageWindow();
+        buildSetPowerSupplyVoltageWindow();
+        buildSetLaserDiodeCurrentWindow();
         buildConfigWindow();
 
+        // Initialize our states
+        hvState.setEnabled(false);
+        ldState.setEnabled(false);
 
-        /**
-         * Set up a connection with the Acromag
-         */
-        statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
-        statusLabel.setForeground(Color.RED);
-        this.controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
-
-
-        /**
-         * Initialize the power supply state
-         */
-        state = new PowerSupplyState();
-        state.setOff();
+        // Lock the system until connection is confirmed
+        lockSystem();
 
     }
 
     private void buildMainWindow(){
 
-        /**
-         * Create the component panel
-         */
-        mainWindowPanel = new JPanel(new GridBagLayout());
+        // Create the menu bar
+        JMenuBar menuBar = new JMenuBar();
+        this.setJMenuBar(menuBar);
+
+        // Advanced menu
+        JMenu advancedMenu = new JMenu("Advanced");
+        menuBar.add(advancedMenu);
+
+        // Quick Condition menu
+        quickConditionMenu = new JMenu("Quick Condition");
+        advancedMenu.add(quickConditionMenu);
+
+        // Configuration menu item
+        configurationMenuItem = new JMenuItem("Configuration");
+        configurationMenuItem.addActionListener(actionEvent -> configButtonClicked());
+        advancedMenu.add(configurationMenuItem);
+
+        // Quick condition menu items
+        JMenuItem[] quickConditionOptions = new JMenuItem[QUICK_CONDITION_TIMES.length];
+        for (int i = 0; i < quickConditionOptions.length; i++){
+            final int time = QUICK_CONDITION_TIMES[i];
+            quickConditionOptions[i] = new JMenuItem(time + " min Condition");
+            quickConditionOptions[i].addActionListener(actionEvent -> hvState.startConditioning(time));
+            quickConditionMenu.add(quickConditionOptions[i]);
+        }
+
+        // Create the component panel
+        JPanel mainWindowPanel = new JPanel(new GridBagLayout());
         constraints = new GridBagConstraints();
         constraints.fill = GridBagConstraints.HORIZONTAL;
 
 
-        /**
-         * Create the on button
-         */
-        onButton = new JToggleButton("On", false);
-        onButton.addActionListener(this);
-        onButton.setActionCommand(ON_BUTTON_ACTION);
-        setConstraints(0, 0, 1, 1);
-        setPadding(10, 0, 10, 10);
-        mainWindowPanel.add(onButton, constraints);
+
+        // ----- LINE # 1 ("Power Supply" | On | Off | Set Voltage | Configuration) ----- //
+            int xPos = 0, yPos = 0;
+            setConstraints(xPos, yPos, 2, 1);
+            setPadding(10, 10, 10, 10);
+            mainWindowPanel.add(new JLabel("Power Supply :", JLabel.LEFT), constraints);
 
 
-        /**
-         * Create the off button
-         */
-        offButton = new JToggleButton("Off", false);
-        offButton.addActionListener(this);
-        offButton.setActionCommand(OFF_BUTTON_ACTION);
-        offButton.setEnabled(false);
-        offButton.setSelected(true);
-        setConstraints(1, 0, 1, 1);
-        setPadding(0, 10, 10, 10);
-        mainWindowPanel.add(offButton, constraints);
+            // Create the hv on button
+            hvOnButton = new JToggleButton("On", false);
+            hvOnButton.addActionListener(e -> hvState.setEnabled(true));
+
+            xPos+=2;
+            setConstraints(xPos, yPos, 1, 1);
+            setPadding(10, 0, 10, 10);
+            mainWindowPanel.add(hvOnButton, constraints);
 
 
-        /**
-         * Create the set voltage button
-         */
-        setVoltageButton = new JButton("Set Voltage");
-        setVoltageButton.addActionListener(this);
-        setVoltageButton.setActionCommand(SET_VOLTAGE_ACTION);
-        setVoltageButton.setEnabled(false);
-        setConstraints(2, 0, 1, 1);
-        setPadding(10, 10, 10, 10);
-        mainWindowPanel.add(setVoltageButton, constraints);
+            // Create the hv off button to the right
+            hvOffButton = new JToggleButton("Off", false);
+            hvOffButton.addActionListener(e -> hvState.setEnabled(false));
+
+            xPos++;
+            setConstraints(xPos, yPos, 1, 1);
+            setPadding(0, 10, 10, 10);
+            mainWindowPanel.add(hvOffButton, constraints);
 
 
-        /**
-         * Create the config button
-         */
-        configButton = new JButton("Configuration");
-        configButton.addActionListener(this);
-        configButton.setActionCommand(CONFIG_ACTION);
-        setConstraints(3, 0, 1, 1);
-        setPadding(10, 10, 10, 10);
-        mainWindowPanel.add(configButton, constraints);
+            // Create the set voltage button to the right
+            setVoltageButton = new JButton("Set Voltage");
+            setVoltageButton.addActionListener(e -> setVoltageButtonClicked());
+
+            xPos++;
+            setConstraints(xPos, yPos, 2, 1);
+            setPadding(10, 10, 10, 10);
+            mainWindowPanel.add(setVoltageButton, constraints);
 
 
-        /**
-         * Add a separator between the buttons and the reader
-         */
-        setConstraints(0, 1, 4, 1);
-        setPadding(10, 10, 10, 10);
-        mainWindowPanel.add(new JSeparator(), constraints);
+            // Create an abort condition button exactly on top of the set voltage button
+            abortConditionButton = new JButton("Abort!");
+            abortConditionButton.addActionListener(e -> hvState.abortConditioning());
+            abortConditionButton.setVisible(false);
+
+            setConstraints(xPos, yPos, 2, 1);
+            setPadding(10, 10, 10, 10);
+            mainWindowPanel.add(abortConditionButton, constraints);
 
 
-        /**
-         * Create the voltage reading bar
-         */
-        setConstraints(0, 2, 4, 1);
-        setPadding(10, 10, 0, 0);
-        mainWindowPanel.add(new JLabel("Voltage Reading", JLabel.CENTER), constraints);
 
-        voltageReading = new JProgressBar(0, VOLTAGE_RESOLUTION);
-        voltageReading.setValue(0);
-        voltageReading.setStringPainted(true);
-        voltageReading.setString("- kV");
-        voltageReading.setPreferredSize(new Dimension(4, 30));
-        setConstraints(0, 3, 4, 1);
-        setPadding(10, 10, 5, 10);
-        mainWindowPanel.add(voltageReading, constraints);
+        // ----- LINE # 2 (Voltage Reading Label) ----- //
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 5, 5);
+            mainWindowPanel.add(new JLabel("Voltage Reading", JLabel.CENTER), constraints);
 
 
-        /**
-         * Create the current reading bar
-         */
-        setConstraints(0, 4, 4, 1);
-        setPadding(10, 10, 0, 0);
-        mainWindowPanel.add(new JLabel("Current Reading", JLabel.CENTER), constraints);
 
-        currentReading = new JProgressBar(0, CURRENT_RESOLUTION);
-        currentReading.setValue(0);
-        currentReading.setStringPainted(true);
-        currentReading.setString("- mA");
-        currentReading.setPreferredSize(new Dimension(4, 30));
-        setConstraints(0, 5, 4, 1);
-        setPadding(10, 10, 5, 10);
-        mainWindowPanel.add(currentReading, constraints);
+        // ----- LINE # 3 (Voltage Reading Progress Bar) ----- //
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 0, 0);
+
+            // Build the voltage reading bar
+            voltageReading = new JProgressBar(0, PROGRESS_BAR_RESOLUTION);
+            voltageReading.setValue(0);
+            voltageReading.setStringPainted(true);
+            voltageReading.setString("- kV");
+            voltageReading.setPreferredSize(new Dimension(4, 30));
+            mainWindowPanel.add(voltageReading, constraints);
 
 
-        /**
-         * Create a status bar
-         */
-        setConstraints(0, 6, 4, 1);
-        setPadding(5, 5, 5, 5);
 
-        statusLabel = new JLabel("Initializing GUI ... ", JLabel.LEFT);
-        mainWindowPanel.add(statusLabel, constraints);
+        // ----- LINE # 4 (Current Reading Label) ----- //
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 10, 5);
+            mainWindowPanel.add(new JLabel("Current Reading", JLabel.CENTER), constraints);
 
 
-        /**
-         * Add the component pane to this frame
-         */
+
+        // ----- LINE # 5 (Current Reading Progress Bar) ----- //
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 0, 10);
+
+            // Build the current reading bar
+            currentReading = new JProgressBar(0, PROGRESS_BAR_RESOLUTION);
+            currentReading.setValue(0);
+            currentReading.setStringPainted(true);
+            currentReading.setString("- mA");
+            currentReading.setPreferredSize(new Dimension(4, 30));
+            mainWindowPanel.add(currentReading, constraints);
+
+
+
+        // ----- LINE # 6 (Separator) -----
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 5, 15);
+            mainWindowPanel.add(new JSeparator(), constraints);
+
+
+
+        // ----- LINE # 7 ("Laser Diode" | LD On | LD Off | Set Current) -----
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 2, 1);
+            setPadding(10, 10, 10, 10);
+            mainWindowPanel.add(new JLabel("Laser Diode :", JLabel.LEFT), constraints);
+
+
+            // Create the ld on button to the right
+            ldOnButton = new JToggleButton("On", false);
+            ldOnButton.addActionListener(e -> ldState.setEnabled(true));
+
+            xPos+=2;
+            setConstraints(xPos, yPos, 1, 1);
+            setPadding(10, 0, 10, 10);
+            mainWindowPanel.add(ldOnButton, constraints);
+
+
+            // Create the hv off button to the right
+            ldOffButton = new JToggleButton("Off", false);
+            ldOffButton.addActionListener(e -> ldState.setEnabled(false));
+
+
+            xPos++;
+            setConstraints(xPos, yPos, 1, 1);
+            setPadding(0, 10, 10, 10);
+            mainWindowPanel.add(ldOffButton, constraints);
+
+
+            // Create the set ld current button to the right
+            setLdCurrentButton = new JButton("Set Current");
+            setLdCurrentButton.addActionListener(e -> setDiodeCurrentButtonClicked());
+
+
+            xPos++;
+            setConstraints(xPos, yPos, 1, 1);
+            setPadding(10, 10, 10, 10);
+            mainWindowPanel.add(setLdCurrentButton, constraints);
+
+
+
+        // ----- LINE # 8 (LD Current Setting Label) ----- //
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 5, 5);
+            mainWindowPanel.add(new JLabel("Current Setting", JLabel.CENTER), constraints);
+
+
+
+        // ----- LINE # 9 (LD Current Progress Bar) ----- //
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 0, 10);
+
+            // Build the voltage reading bar
+            ldCurrentReading = new JProgressBar(0, PROGRESS_BAR_RESOLUTION);
+            ldCurrentReading.setValue(0);
+            ldCurrentReading.setStringPainted(true);
+            ldCurrentReading.setString("- mA");
+            ldCurrentReading.setPreferredSize(new Dimension(4, 30));
+            mainWindowPanel.add(ldCurrentReading, constraints);
+
+
+
+        // ----- LINE # 10 (Separator) -----
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 5, 15);
+            mainWindowPanel.add(new JSeparator(), constraints);
+
+
+        // ----- LINE # 11 (Status bar) -----
+            xPos = 0; yPos++;
+            setConstraints(xPos, yPos, 6, 1);
+            setPadding(10, 10, 10, 10);
+
+            // Build the status label
+            statusLabel = new JLabel("Initializing GUI ... ", JLabel.LEFT);
+            statusLabel.setForeground(Color.RED);
+            mainWindowPanel.add(statusLabel, constraints);
+
+
+
+        // Add the component pane to this frame
         add(mainWindowPanel);
         pack();
 
 
-        /**
-         * Set up the window
-         */
+
+        // Set up the window
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(this);
         setLocation(Configuration.getMainWindowPosX(), Configuration.getMainWindowPosY());
         setResizable(false);
         setVisible(true);
-
     }
 
-    private void buildSetVoltageWindow(){
+    private void buildSetPowerSupplyVoltageWindow(){
 
         /**
          * Create the component panel
@@ -278,7 +365,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         setConstraints(1, 0, 1, 1);
         setPadding(10, 10, 10, 10);
 
-        double maxVoltage = Configuration.getMaxPowerSupplyVoltage();
+        double maxVoltage = Configuration.getMaxAllowablePowerSupplyVoltage();
         SpinnerNumberModel voltageModel = new SpinnerNumberModel(0.0, 0.0, maxVoltage, 0.5);
         targetVoltageSpinner = new JSpinner(voltageModel);
 
@@ -286,25 +373,35 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         targetVoltageSpinner.setEditor(voltageEditor);
         setVoltagePanel.add(targetVoltageSpinner, constraints);
 
+    }
+
+    private void buildSetLaserDiodeCurrentWindow(){
 
         /**
-         * Build target current spinner
+         * Create the component panel
          */
-        setConstraints(0, 1, 1, 1);
+        setDiodeCurrentPanel = new JPanel(new GridBagLayout());
+        constraints = new GridBagConstraints();
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+
+
+        /**
+         * Build target voltage spinner
+         */
+        setConstraints(0, 0, 1, 1);
         setPadding(10, 10, 10, 10);
-        setVoltagePanel.add(new JLabel("Target Current: ", JLabel.LEFT), constraints);
+        setDiodeCurrentPanel.add(new JLabel("Target Current: ", JLabel.LEFT), constraints);
 
-        setConstraints(1, 1, 1, 1);
+        setConstraints(1, 0, 1, 1);
         setPadding(10, 10, 10, 10);
 
-        double maxCurrent = Configuration.getMaxPowerSupplyCurrent();
-        SpinnerNumberModel currentModel = new SpinnerNumberModel(maxCurrent, 0.0, maxCurrent, 0.1);
-        targetCurrentSpinner = new JSpinner(currentModel);
+        double maxCurrent = Constants.getLaserDiodeMaxCurrent();
+        SpinnerNumberModel currentModel = new SpinnerNumberModel(0.0, 0.0, maxCurrent, 0.1);
+        targetDiodeCurrentSpinner = new JSpinner(currentModel);
 
-        JSpinner.NumberEditor currentEditor = new JSpinner.NumberEditor(targetCurrentSpinner,
-                "0.0  mA   ");
-        targetCurrentSpinner.setEditor(currentEditor);
-        setVoltagePanel.add(targetCurrentSpinner, constraints);
+        JSpinner.NumberEditor currentEditor = new JSpinner.NumberEditor(targetDiodeCurrentSpinner,"0.0  mA   ");
+        targetDiodeCurrentSpinner.setEditor(currentEditor);
+        setDiodeCurrentPanel.add(targetDiodeCurrentSpinner, constraints);
 
     }
 
@@ -548,6 +645,55 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
 
 
         /**
+         * Build "Laser Diode" separator
+         */
+
+        setConstraints(0, currentHeight, 5, 1);
+        setPadding(10, 10, 10, 0);
+        configPanel.add(new JLabel("Laser Diode Control Channels", JLabel.RIGHT), constraints);
+        currentHeight++;
+
+        setConstraints(0, currentHeight, 5, 1);
+        setPadding(10, 10, 0, 0);
+        configPanel.add(new JSeparator(), constraints);
+        currentHeight++;
+
+
+        // LD Enable Channel
+        SpinnerNumberModel ldEnableModel = new SpinnerNumberModel(0, 0, 15, 1);
+        ldEnableModel.setValue(Configuration.getLdEnableChannel());
+
+        setConstraints(0, currentHeight, 1, 1);
+        setPadding(10, 10, 5, 5);
+        configPanel.add(new JLabel("LD Enable : ", JLabel.RIGHT), constraints);
+
+        setConstraints(1, currentHeight, 1, 1);
+        setPadding(10, 0, 5, 5);
+        ldEnableChannelSpinner = new JSpinner(ldEnableModel);
+        ldEnableChannelSpinner.setPreferredSize(new Dimension(50, 30));
+        ldEnableChannelSpinner.setEditor(new JSpinner.NumberEditor(ldEnableChannelSpinner, "0    "));
+        configPanel.add(ldEnableChannelSpinner, constraints);
+        currentHeight++;
+
+
+        // LD Current Monitor Channel
+        SpinnerNumberModel ldCurrentControlModel = new SpinnerNumberModel(0, 0, 15, 1);
+        ldCurrentControlModel.setValue(Configuration.getLdCurrentControlChannel());
+
+        setConstraints(0, currentHeight, 1, 1);
+        setPadding(10, 10, 5, 5);
+        configPanel.add(new JLabel("LD Current Control : ", JLabel.RIGHT), constraints);
+
+        setConstraints(1, currentHeight, 1, 1);
+        setPadding(10, 0, 5, 5);
+        ldCurrentControlChannelSpinner = new JSpinner(ldCurrentControlModel);
+        ldCurrentControlChannelSpinner.setPreferredSize(new Dimension(50, 30));
+        ldCurrentControlChannelSpinner.setEditor(new JSpinner.NumberEditor(ldCurrentControlChannelSpinner, "0    "));
+        configPanel.add(ldCurrentControlChannelSpinner, constraints);
+        currentHeight++;
+
+
+        /**
          * Build "Power Supply Limits" separator
          */
 
@@ -565,7 +711,7 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         /**
          * Build Max Power Supply Voltage Text Field
          */
-        Double maxPowerSupplyVoltage = Configuration.getMaxPowerSupplyVoltage();
+        Double maxPowerSupplyVoltage = Configuration.getMaxAllowablePowerSupplyVoltage();
 
         setConstraints(0, currentHeight, 1, 1);
         setPadding(10, 10, 5, 5);
@@ -577,76 +723,6 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         maxVoltageField.setHorizontalAlignment(JTextField.CENTER);
         maxVoltageField.setPreferredSize(new Dimension(40, 30));
         configPanel.add(maxVoltageField, constraints);
-        currentHeight++;
-
-
-        /**
-         * Build Max Power Supply Current Text Field
-         */
-        Double maxPowerSupplyCurrent = Configuration.getMaxPowerSupplyCurrent();
-
-        setConstraints(0, currentHeight, 1, 1);
-        setPadding(10, 10, 5, 5);
-        configPanel.add(new JLabel("Max Current (mA) : ", JLabel.RIGHT), constraints);
-
-        setConstraints(1, currentHeight, 1, 1);
-        setPadding(10, 0, 5, 5);
-        maxCurrentField = new JTextField(maxPowerSupplyCurrent.toString());
-        maxCurrentField.setHorizontalAlignment(JTextField.CENTER);
-        maxCurrentField.setPreferredSize(new Dimension(40, 30));
-        configPanel.add(maxCurrentField, constraints);
-        currentHeight++;
-
-
-        // TODO: GENERALIZE EVERYTHING BELOW
-        /**
-         * Build "Manual Channel Set" separator
-         */
-
-        setConstraints(0, currentHeight, 5, 1);
-        setPadding(10, 10, 10, 0);
-        configPanel.add(new JLabel("Manual Channel Settings", JLabel.RIGHT), constraints);
-        currentHeight++;
-
-        setConstraints(0, currentHeight, 5, 1);
-        setPadding(10, 10, 0, 0);
-        configPanel.add(new JSeparator(), constraints);
-        currentHeight++;
-
-
-        /**
-         * Build "Channel 12 Voltage" Text Field
-         */
-
-        setConstraints(0, currentHeight, 1, 1);
-        setPadding(10, 10, 5, 5);
-        configPanel.add(new JLabel("Channel 12 (V) : ", JLabel.RIGHT), constraints);
-
-        setConstraints(1, currentHeight, 1, 1);
-        setPadding(10, 0, 5, 5);
-        channel12VoltageField = new JTextField(Double.toString(0.0));
-        channel12VoltageField.setHorizontalAlignment(JTextField.CENTER);
-        channel12VoltageField.setPreferredSize(new Dimension(40, 30));
-        configPanel.add(channel12VoltageField, constraints);
-        currentHeight++;
-
-
-        /**
-         * Build "Channel 13 Voltage" Text Field
-         */
-
-        setConstraints(0, currentHeight, 1, 1);
-        setPadding(10, 10, 5, 5);
-        configPanel.add(new JLabel("Channel 13 (V) : ", JLabel.RIGHT), constraints);
-
-        setConstraints(1, currentHeight, 1, 1);
-        setPadding(10, 0, 5, 5);
-        channel13VoltageField = new JTextField(Double.toString(0.0));
-        channel13VoltageField.setHorizontalAlignment(JTextField.CENTER);
-        channel13VoltageField.setPreferredSize(new Dimension(40, 30));
-        configPanel.add(channel13VoltageField, constraints);
-        currentHeight++;
-
 
     }
 
@@ -658,248 +734,217 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
     private void mainLoop(){
 
         int interlockCounter = 0;
-        while (this.isVisible()){
-
+        while (this.isVisible()) {
             try {
-                /**
-                 * Pause between polls
-                 */
+
+                // Pause between polls
                 Thread.sleep(Configuration.getPollPeriod());
 
-                // TODO: Generalize this
-                try {
-                    double voltage = Math.min(4.0, Double.valueOf(channel12VoltageField.getText()));
-                    controller.setAcromagOutputVoltage(12, voltage);
+                // If we're not connected, attempt to make a new connection
+                if (!controller.isConnected()) {
+                    // Notify the user that we are not connected
+                    statusLabel.setText("Attempting to connect to Acromag at " + Configuration.getAcromagIpAddress() + " ...");
+                    statusLabel.setForeground(Color.RED);
 
-                    voltage = Math.min(0.2, Double.valueOf(channel13VoltageField.getText()));
-                    controller.setAcromagOutputVoltage(13, voltage);
-                }catch (Exception e){
-                    // Do nothing
+                    controller = new AcromagController(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
                 }
 
-                if (controller.isConnected()) {
+                // Update the Acromag settings to match our internal state
+                controller.setPowerSupplyEnable(hvState.isEnabled());
+                controller.setPowerSupplyVoltage(hvState.getVoltageSetting());
+                controller.setPowerSupplyCurrent(hvState.getCurrentSetting());
 
-                    /**
-                     * Update our target settings
-                     */
-                    controller.setPowerSupplyEnable(state.isOn);
-                    controller.setPowerSupplyVoltage(state.voltageSetting);
-                    controller.setPowerSupplyCurrent(state.currentSetting);
-
-
-                    /**
-                     * Get the readings from the Acromag and push them to the GUI
-                     */
-                    state.voltageReading = controller.getPowerSupplyVoltage();
-                    state.currentReading = controller.getPowerSupplyCurrent();
+                controller.setLdEnable(ldState.isEnabled());
+                controller.setLaserDiodeCurrent(ldState.getCurrentSetting());
 
 
-                    /**
-                     * Verify that our reading matching our setting
-                     */
-                    boolean readingMatches = true;
-                    if (state.voltageReading + ACCEPTABLE_VOLTAGE_DIFFERENCE < state.voltageSetting){
-                        readingMatches = false;
-                    }else if (state.voltageReading - ACCEPTABLE_VOLTAGE_DIFFERENCE > state.voltageSetting){
-                        readingMatches = false;
+                // Get the readings from the Acromag and update our power supply state
+                hvState.setVoltageReading(controller.getPowerSupplyVoltage());
+                hvState.setCurrentReading(controller.getPowerSupplyCurrent());
+
+
+                // Verify that the reading and settings are matching
+                if (hvState.getVoltageReading() + ACCEPTABLE_VOLTAGE_DIFFERENCE < hvState.getVoltageSetting())
+                    interlockCounter++;
+                else if (hvState.getVoltageReading() - ACCEPTABLE_VOLTAGE_DIFFERENCE > hvState.getVoltageSetting())
+                    interlockCounter++;
+                else
+                    interlockCounter = 0;
+
+
+                // If the counter has reached our threshold throw an exception to trip the interlock
+                if (interlockCounter >= NUM_POLL_PERIODS_BEFORE_INTERLOCK)
+                    throw new Exceptions.InconsistentReadingsException(hvState.getVoltageReading(), hvState.getVoltageSetting());
+
+
+                // Update voltage progress bar value
+                double fraction = (hvState.getVoltageReading() / Configuration.getMaxAllowablePowerSupplyVoltage());
+                fraction = Math.max(0, fraction);
+                fraction = Math.min(1, fraction);
+
+                voltageReading.setString(String.format("%.2f kV", (-1) * hvState.getVoltageReading()));
+                voltageReading.setValue((int) (PROGRESS_BAR_RESOLUTION * fraction));
+
+
+                // Update current progress bar value
+                fraction = (hvState.getCurrentReading() / Constants.getPowerSupplyMaxCurrent());
+                fraction = Math.max(0, fraction);
+                fraction = Math.min(1, fraction);
+
+                currentReading.setString(String.format("%.2f mA", hvState.getCurrentReading()));
+                currentReading.setValue((int) (PROGRESS_BAR_RESOLUTION * fraction));
+
+
+                // Update diode current progress bar value
+                fraction = (ldState.getCurrentSetting() / Constants.getLaserDiodeMaxCurrent());
+                fraction = Math.max(0, fraction);
+                fraction = Math.min(1, fraction);
+
+                ldCurrentReading.setString(String.format("%.2f mA", ldState.getCurrentSetting()));
+                ldCurrentReading.setValue((int) (PROGRESS_BAR_RESOLUTION * fraction));
+
+
+                // If we made it to the end, there are no errors. Unlock the system for the user.
+                unlockSystem();
+            }
+
+            // Something has gone wrong
+            catch (Exception e) {
+
+                // We want to lock the system regardless of error
+                lockSystem();
+
+                // Print the error message to the terminal
+                writeErrorMessage(e.getMessage());
+
+                // Make an attempt to turn off the system directly (if we're here this will likely fail)
+                try {
+                    controller.setPowerSupplyEnable(false);
+                    controller.setLdEnable(false);
+                } catch (Exception error) {
+                    // Inform the user we failed
+                    writeErrorMessage("Controller is unable to confirm the state of the HVPS");
+                } finally {
+
+                    // This means we have an issue connecting to the Acromag
+                    if (e instanceof Exceptions.AcromagConnectionException) {
+                        // Without a connection, there's nothing more that can be done
                     }
 
 
-                    /**
-                     * If the readings don't match, update our interlock counter
-                     */
-                    if (!readingMatches){
-                        interlockCounter++;
-                    }else{
-                        interlockCounter = 0;
+                    // This means that despite being connected, we somehow failed to communicate with the Acromag
+                    // I precisely timed disconnection could trip this
+                    else if (e instanceof Exceptions.ReadInputVoltageException | e instanceof Exceptions.WriteOutputVoltageException) {
+                        // Without a connection, there's nothing more that can be done
                     }
 
 
-                    /**
-                     * If the counter has reached our threshold throw an interlock
-                     */
-                    if (interlockCounter >= NUM_POLL_PERIODS_BEFORE_INTERLOCK){
+                    // This means we have a connection to the Acromag but the HVPS appears to be off or disconnected
+                    else if (e instanceof Exceptions.BadReferenceVoltageException) {
+                        // Notify the user that there's something wrong with the connection
+                        statusLabel.setText("Bad connection between Acromag and HVPS.");
+                        statusLabel.setForeground(Color.RED);
+                    }
 
-                        state.setOff();
 
-                        controller.setPowerSupplyEnable(state.isOn);
-                        controller.setPowerSupplyVoltage(state.voltageSetting);
-                        controller.setPowerSupplyCurrent(state.currentSetting);
+                    // This means that our connection is fine, but the HVPS is not behaving the way we're requesting
+                    // Most likely it's a hardware interlock (the door) but could also indicate hardware issues
+                    else if (e instanceof Exceptions.InconsistentReadingsException) {
 
-                        String message = "The voltage readings do not agree with what was attempted to be set.\n";
+                        // Since the door may have been opened, force the user to address the issue for safety reasons
+                        String message = "The voltage readings are inconsistent with this controller's expectations.\n";
                         message += "This is likely due to the door interlock being tripped.\n";
                         message += "\n";
                         message += "The HV Power Supply has been attempted to be turned off.\n";
-                        message += "To continue, please visually verify that all personal have evacuated the vault before clearing this message";
+                        message += "To continue, VISUALLY verify that all personal have evacuated the vault before clearing this message";
 
                         JOptionPane.showMessageDialog(this, message, "Interlock Tripped!", JOptionPane.ERROR_MESSAGE);
                     }
 
 
-                }else{
+                    // This means we hit an exception that hasn't been accounted for
+                    else {
 
-                    /**
-                     * Update state to be off so we can update it immediately when we connect
-                     */
-                    state.setOff();
+                        // Let the user know we're in unknown territory
+                        writeErrorMessage("Controller hit an unidentified exception, possibly a runtime error...");
+                        writeErrorMessage("Dumping stack trace:");
+                        e.printStackTrace();
 
-                    /**
-                     * Attempt to establish a new connection
-                     */
-                    controller.disconnect();
-                    controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
+                        System.err.println();
+                        this.dispose();
+
+                        writeErrorMessage("Contact " + AUTHOR_CONTACT + " if the issue persist");
+
+
+                    }
                 }
-
-                updateGUI();
             }
-            catch (Exception error){
-                controller.disconnect();
-                showErrorPopup(error);
-
-            }
-        }
-
-    }
-
-    private void updateGUI(){
-
-        if (controller.isConnected()) {
-
-            /**
-             * Show that we are connected
-             */
-            statusLabel.setText("Connected to " + controller.getAddress());
-            statusLabel.setForeground(Color.BLACK);
-
-
-            /**
-             * Update the on/off "switch" based on the state of the system
-             */
-            onButton.setEnabled(!state.isOn);
-            onButton.setSelected(state.isOn);
-
-            offButton.setEnabled(state.isOn);
-            offButton.setSelected(!state.isOn);
-
-            setVoltageButton.setEnabled(state.isOn);
-            configButton.setEnabled(true);
-            //configButton.setEnabled(!state.isOn);
-            //
-
-            /**
-             * Update progress bar values
-             */
-
-            double voltageFraction = (state.voltageReading / Configuration.getMaxPowerSupplyVoltage());
-            voltageFraction = Math.max(0, voltageFraction);
-            voltageFraction = Math.min(1, voltageFraction);
-
-            double currentFraction = (state.currentReading / Configuration.getMaxPowerSupplyCurrent());
-            currentFraction = Math.max(0, currentFraction);
-            currentFraction = Math.min(1, currentFraction);
-
-            voltageReading.setString(String.format("%.2f kV", (-1)*state.voltageReading));
-            voltageReading.setValue((int) (VOLTAGE_RESOLUTION * voltageFraction));
-
-            currentReading.setString(String.format("%.2f mA", state.currentReading));
-            currentReading.setValue((int) (CURRENT_RESOLUTION * currentFraction));
-
-        }else{
-
-            /**
-             * Disable everything that's not config
-             */
-            onButton.setEnabled(false);
-            offButton.setEnabled(false);
-            setVoltageButton.setEnabled(false);
-
-
-            /**
-             * Show where we are attempting to connect to
-             */
-            statusLabel.setText("Attempting to connect to " + Configuration.getAcromagIpAddress());
-            statusLabel.setForeground(Color.RED);
-
-
-            /**
-             * Show the user that we have no true values to read
-             */
-            voltageReading.setString("- kV");
-            voltageReading.setValue(0);
-
-            currentReading.setString("- mA");
-            currentReading.setValue(0);
-        }
-    }
-
-
-
-
-    /**
-     * Functions called by action listener
-     */
-    public void actionPerformed(ActionEvent e) {
-
-        if (e.getActionCommand().equals(ON_BUTTON_ACTION)){
-            onButtonClicked();
-        }
-
-        if (e.getActionCommand().equals(OFF_BUTTON_ACTION)){
-            offButtonClicked();
-        }
-
-        if (e.getActionCommand().equals(SET_VOLTAGE_ACTION)){
-            setVoltageButtonClicked();
-        }
-
-        if (e.getActionCommand().equals(CONFIG_ACTION)){
-            configButtonClicked();
-        }
-    }
-
-    private void onButtonClicked(){
-        if (controller.isConnected()) {
-            state.setOn();
-            updateGUI();
-        }else{
-            onButton.setSelected(false);
-        }
-    }
-
-    private void offButtonClicked(){
-        if (controller.isConnected()) {
-            state.setOff();
-            updateGUI();
-        }else {
-            offButton.setSelected(false);
         }
     }
 
     private void setVoltageButtonClicked(){
-        if (controller.isConnected()) {
-            int result = JOptionPane.showConfirmDialog(this,
-                    setVoltagePanel, "Set voltage and current",
-                    JOptionPane.OK_CANCEL_OPTION);
+        int result = JOptionPane.showConfirmDialog(this,
+                setVoltagePanel, "Select a target voltage", JOptionPane.OK_CANCEL_OPTION);
 
-            if (result == JOptionPane.OK_OPTION) {
+        if (result == JOptionPane.OK_OPTION) {
+            hvState.setVoltageSetting(Double.valueOf(targetVoltageSpinner.getValue().toString()));
+        }
+    }
 
-                state.voltageSetting = Double.valueOf(targetVoltageSpinner.getValue().toString());
-                state.currentSetting = Double.valueOf(targetCurrentSpinner.getValue().toString());
-                updateGUI();
+    private void setDiodeCurrentButtonClicked(){
+        int result = JOptionPane.showConfirmDialog(this,
+                setDiodeCurrentPanel, "Select a target current", JOptionPane.OK_CANCEL_OPTION);
 
-            }
+        if (result == JOptionPane.OK_OPTION) {
+            ldState.setCurrentSetting(Double.valueOf(targetDiodeCurrentSpinner.getValue().toString()));
         }
     }
 
     private void configButtonClicked(){
-        int result = JOptionPane.showConfirmDialog(this,
-                configPanel, "Configuration Options",
-                JOptionPane.OK_CANCEL_OPTION);
+        int result = showConfigurationWindow();
 
         if (result == JOptionPane.OK_OPTION){
-            updateConfiguration();
+            String message = "Incorrectly changing the configuration of this system can result in a variety of serious safety hazards.\n" +
+                    "Ensure that you absolutely know what you are doing before by confirming these changes.\n" +
+                    "If you have any doubts at all please select \"No\" and contact " + AUTHOR_CONTACT + ".\n" +
+                    "\n" +
+                    "Are you sure you would like to save these changes?";
+
+            int doubleCheck = JOptionPane.showConfirmDialog(null, message, "Warning!", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+            if (doubleCheck == JOptionPane.YES_OPTION) {
+                updateConfiguration();
+            }
         }
 
+    }
+
+    private int showConfigurationWindow(){
+
+        String ipAddress = Configuration.getAcromagIpAddress();
+        String[] values = ipAddress.split(".");
+
+        for (int i = 0; i < values.length; i++){
+            ipAddressFields[i].setText(values[i]);
+        }
+
+        modbusPortField.setText(Configuration.getModbusPort().toString());
+        pollPeriodField.setText(Configuration.getPollPeriod().toString());
+
+        referenceVoltageChannelSpinner.setValue(Configuration.getReferenceVoltageChannel());
+        voltageMonitorChannelSpinner.setValue(Configuration.getVoltageMonitorChannel());
+        currentMonitorChannelSpinner.setValue(Configuration.getCurrentMonitorChannel());
+
+        hvEnableChannelSpinner.setValue(Configuration.getHvEnableChannel());
+        voltageControlChannelSpinner.setValue(Configuration.getVoltageControlChannel());
+        currentControlChannelSpinner.setValue(Configuration.getCurrentControlChannel());
+
+        ldEnableChannelSpinner.setValue(Configuration.getLdEnableChannel());
+        ldCurrentControlChannelSpinner.setValue(Configuration.getLdCurrentControlChannel());
+
+        maxVoltageField.setText(Configuration.getMaxAllowablePowerSupplyVoltage().toString());
+
+        return JOptionPane.showConfirmDialog(this, configPanel, "Configuration Options", JOptionPane.OK_CANCEL_OPTION);
     }
 
     private void updateConfiguration(){
@@ -927,56 +972,52 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         Configuration.setCurrentControlChannel(Integer.valueOf(
                 currentControlChannelSpinner.getValue().toString()));
 
-        Configuration.setMaxPowerSupplyVoltage(Double.valueOf(maxVoltageField.getText()));
-        Configuration.setMaxPowerSupplyCurrent(Double.valueOf(maxCurrentField.getText()));
+        Configuration.setLdEnableChannel(Integer.valueOf(
+                ldEnableChannelSpinner.getValue().toString()));
+        Configuration.setLdCurrentControlChannel(Integer.valueOf(
+                ldCurrentControlChannelSpinner.getValue().toString()));
+
+        Configuration.setMaxAllowablePowerSupplyVoltage(Double.valueOf(maxVoltageField.getText()));
 
         Configuration.setMainWindowPosX(this.getX());
         Configuration.setMainWindowPosY(this.getY());
 
-        controller = new Controller(Configuration.getAcromagIpAddress(), Configuration.getModbusPort());
+        Configuration.writeConfiguration();
     }
 
 
+    // ***********************************************************
+    // Inherited WindowListener methods that we'll use for cleanup
+    // ***********************************************************
 
-    /**
-     * Function called when the window is closed
-     */
     public void windowClosing(WindowEvent e) {
-        updateConfiguration();
-        Configuration.writeConfiguration();
-        controller.disconnect();
-
+        this.setVisible(false);
         this.dispose();
     }
 
-
-
-    /**
-     * Implementation methods that I'm not currently using
-     */
-    public void windowOpened(WindowEvent e) {
-    }
-
     public void windowClosed(WindowEvent e) {
-    }
-
-    public void windowIconified(WindowEvent e) {
-    }
-
-    public void windowDeiconified(WindowEvent e) {
-    }
-
-    public void windowActivated(WindowEvent e) {
-    }
-
-    public void windowDeactivated(WindowEvent e) {
+        updateConfiguration();
+        Configuration.writeConfiguration();
+        controller.disconnect();
     }
 
 
 
-    /**
-     * Convenience wrapper functions
-     */
+    // **************************************************
+    // Inherited WindowListener methods that we don't use
+    // **************************************************
+
+    public void windowOpened(WindowEvent e) { }
+    public void windowIconified(WindowEvent e) { }
+    public void windowDeiconified(WindowEvent e) { }
+    public void windowActivated(WindowEvent e) { }
+    public void windowDeactivated(WindowEvent e) { }
+
+
+    // *****************************
+    // Convenience wrapper functions
+    // *****************************
+
     private void setConstraints(int x, int y, int width, int height){
         constraints.gridx = x;
         constraints.gridy = y;
@@ -988,49 +1029,234 @@ public class GUI extends JFrame implements WindowListener, ActionListener{
         constraints.insets = new Insets(top, left, bottom, right);
     }
 
-    private void showErrorPopup(Exception error){
-        String message = "No message has been programmed for this error yet. :(";
-        showErrorPopup(message, error);
+    private void lockSystem(){
+
+        // Disable both internal states
+        hvState.setEnabled(false);
+        ldState.setEnabled(false);
+
+        // Disable everything that's not the config button
+        quickConditionMenu.setEnabled(false);
+
+        hvOnButton.setEnabled(false);
+        hvOffButton.setEnabled(false);
+        setVoltageButton.setEnabled(false);
+
+        ldOnButton.setEnabled(false);
+        ldOffButton.setEnabled(false);
+        setLdCurrentButton.setEnabled(false);
+
+
+        // Blank out all of the readings
+        voltageReading.setString("- kV");
+        voltageReading.setValue(0);
+
+        currentReading.setString("- mA");
+        currentReading.setValue(0);
+
+        ldCurrentReading.setString("- mA");
+        ldCurrentReading.setValue(0);
     }
 
-    private void showErrorPopup(String message, Exception error){
-        error.printStackTrace();
+    private void unlockSystem(){
+        // If we just force our states to "reset" their enabled state, they'll refresh the GUI automatically
+        hvState.setEnabled(hvState.isEnabled());
+        ldState.setEnabled(ldState.isEnabled());
 
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        error.printStackTrace(pw);
+        // Show that we are connected
+        statusLabel.setText("Connected to " + controller.getAddress());
+        statusLabel.setForeground(Color.BLACK);
+    }
 
-        message += "\n\n";
-        message += sw.toString();
+    private void writeErrorMessage(String message){
+        long timeMs = System.currentTimeMillis();
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("MMMM dd, yyyy (HH:mm:ss) - ");
 
-        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
-
+        message = simpleDateFormat.format(new Date(timeMs)) + message;
+        System.err.println(message);
     }
 
 
-    /**
-     * Glorified struct to act as our "state machine"
-     */
+    // **********************
+    // Internal state classes
+    // **********************
+
     class PowerSupplyState{
 
-        boolean isOn;
+        private Timer rampVoltageTimer;
 
-        double voltageSetting;
-        double currentSetting;
+        private boolean enabled;
+        private boolean conditioning;
 
-        double voltageReading;
-        double currentReading;
+        private double voltageSetting;
+        private double currentSetting;
 
-        void setOn(){
-            isOn = true;
+        private double voltageReading;
+        private double currentReading;
+
+
+        void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+
+            // If we're turning if off we should zero all the settings and kill any conditioning
+            if (!enabled){
+                if (conditioning)   abortConditioning();
+                this.voltageSetting = 0.0;
+                this.currentSetting = 0.0;
+            }
+
+            // On button should be selected but not enabled when the system is "on"
+            hvOnButton.setEnabled(!enabled);
+            hvOnButton.setSelected(enabled);
+
+            // Off button should not be selected but be enabled when the system is "on"
+            hvOffButton.setEnabled(enabled);
+            hvOffButton.setSelected(!enabled);
+
+            // Set voltage should be enabled if the system is 'on"
+            setVoltageButton.setEnabled(enabled);
+
+            // Configuration options should not be enabled when the system is "on"
+            configurationMenuItem.setEnabled(!enabled);
         }
 
-        void setOff(){
-            isOn = false;
-            voltageSetting = 0.0;
-            currentSetting = 0.0;
+        void startConditioning(int conditionTime){
+
+            // Calculate our voltage steps
+            final double maxV = Configuration.getMaxAllowablePowerSupplyVoltage();
+            final int totalTime_ms = conditionTime * 60 * 1000;
+
+            final int dt = Configuration.getPollPeriod();
+            final double dV = dt * maxV / totalTime_ms;
+
+            // Verify that the user would like to start conditioning
+            String message = String.format("Start a %d min conditioning to %.1f kV?", conditionTime, maxV);
+            int result = JOptionPane.showConfirmDialog(null,  message, "Conditioning", JOptionPane.YES_NO_OPTION);
+
+
+            if (result == JOptionPane.YES_OPTION) {
+
+                // Update the state
+                this.conditioning = true;
+
+                // Update some GUI elements
+                quickConditionMenu.setEnabled(false);
+                setVoltageButton.setVisible(false);
+                abortConditionButton.setVisible(true);
+
+
+
+                // Start the timer
+                rampVoltageTimer = new Timer(dt, e -> hvState.rampVoltage(dV));
+            }
+        }
+
+        void abortConditioning(){
+            writeErrorMessage("Attempting to abort conditioning... ");
+            stopConditioning();
+            writeErrorMessage("Abort successful!");
+        }
+
+        void stopConditioning(){
+
+            // Kill the timer
+            rampVoltageTimer.stop();
+
+            // Update the state
+            this.conditioning = false;
+
+            // Update some GUI elements
+            quickConditionMenu.setEnabled(true);
+            setVoltageButton.setVisible(true);
+            abortConditionButton.setVisible(false);
+        }
+
+        void rampVoltage(double dV){
+            double newVoltage = this.voltageSetting + dV;
+            if (newVoltage > Configuration.getMaxAllowablePowerSupplyVoltage()){
+                newVoltage = Configuration.getMaxAllowablePowerSupplyVoltage();
+                stopConditioning();
+            }
+            this.voltageSetting = newVoltage;
+        }
+
+        void setVoltageSetting(double voltageSetting) {
+            this.voltageSetting = voltageSetting;
+        }
+
+        void setCurrentSetting(double currentSetting) {
+            this.currentSetting = currentSetting;
+        }
+
+        void setVoltageReading(double voltageReading) {
+            this.voltageReading = voltageReading;
+        }
+
+        void setCurrentReading(double currentReading) {
+            this.currentReading = currentReading;
+        }
+
+        boolean isEnabled() {
+            return enabled;
+        }
+
+        public boolean isConditioning() {
+            return conditioning;
+        }
+
+        double getVoltageSetting() {
+            return voltageSetting;
+        }
+
+        double getCurrentSetting() {
+            return currentSetting;
+        }
+
+        double getVoltageReading() {
+            return voltageReading;
+        }
+
+        double getCurrentReading() {
+            return currentReading;
         }
     }
 
+    class LaserDiodeState {
+
+        private boolean enabled;
+        private double currentSetting;
+
+        void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+
+            // If we're turning if off we should zero all the settings
+            if (!enabled){
+                this.currentSetting = 0.0;
+            }
+
+            // On button should be selected but not enabled when the system is "on"
+            ldOnButton.setEnabled(!enabled);
+            ldOnButton.setSelected(enabled);
+
+            // Off button should not be selected but be enabled when the system is "on"
+            ldOffButton.setEnabled(enabled);
+            ldOffButton.setSelected(!enabled);
+
+            // Set current should be enabled if the system is 'on"
+            setLdCurrentButton.setEnabled(enabled);
+        }
+
+        void setCurrentSetting(double currentSetting) {
+            this.currentSetting = currentSetting;
+        }
+
+        boolean isEnabled() {
+            return enabled;
+        }
+
+        double getCurrentSetting() {
+            return currentSetting;
+        }
+    }
 
 }
