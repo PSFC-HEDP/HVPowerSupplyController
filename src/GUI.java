@@ -833,8 +833,8 @@ public class GUI extends JFrame implements WindowListener{
 
 
                     // This means that despite being connected, we somehow failed to communicate with the Acromag
-                    // I precisely timed disconnection could trip this
-                    else if (e instanceof Exceptions.ReadInputVoltageException | e instanceof Exceptions.WriteOutputVoltageException) {
+                    // A precisely timed disconnection could trip this
+                    else if (e instanceof Exceptions.ReadInputVoltageException || e instanceof Exceptions.WriteOutputVoltageException) {
                         // Without a connection, there's nothing more that can be done
                     }
 
@@ -856,7 +856,7 @@ public class GUI extends JFrame implements WindowListener{
                         message += "This is likely due to the door interlock being tripped.\n";
                         message += "\n";
                         message += "The HV Power Supply has been attempted to be turned off.\n";
-                        message += "To continue, VISUALLY verify that all personal have evacuated the vault before clearing this message";
+                        message += "To continue, VISUALLY verify that all personnel have evacuated the vault before clearing this message";
 
                         JOptionPane.showMessageDialog(this, message, "Interlock Tripped!", JOptionPane.ERROR_MESSAGE);
                     }
