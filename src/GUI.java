@@ -2,6 +2,8 @@
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
 import java.text.SimpleDateFormat;
@@ -128,7 +130,12 @@ public class GUI extends JFrame implements WindowListener{
 
         // Configuration menu item
         configurationMenuItem = new JMenuItem("Configuration");
-        configurationMenuItem.addActionListener(actionEvent -> configButtonClicked());
+        configurationMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                configButtonClicked();
+            }
+        });
         advancedMenu.add(configurationMenuItem);
 
         // Quick condition menu items
@@ -136,7 +143,12 @@ public class GUI extends JFrame implements WindowListener{
         for (int i = 0; i < quickConditionOptions.length; i++){
             final int time = QUICK_CONDITION_TIMES[i];
             quickConditionOptions[i] = new JMenuItem(time + " min Condition");
-            quickConditionOptions[i].addActionListener(actionEvent -> hvState.startConditioning(time));
+            quickConditionOptions[i].addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    hvState.startConditioning(time);
+                }
+            });
             quickConditionMenu.add(quickConditionOptions[i]);
         }
 
@@ -156,7 +168,12 @@ public class GUI extends JFrame implements WindowListener{
 
             // Create the hv on button
             hvOnButton = new JToggleButton("On", false);
-            hvOnButton.addActionListener(e -> hvState.setEnabled(true));
+            hvOnButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    hvState.setEnabled(true);
+                }
+            });
 
             xPos+=2;
             setConstraints(xPos, yPos, 1, 1);
@@ -166,7 +183,12 @@ public class GUI extends JFrame implements WindowListener{
 
             // Create the hv off button to the right
             hvOffButton = new JToggleButton("Off", false);
-            hvOffButton.addActionListener(e -> hvState.setEnabled(false));
+            hvOffButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    hvState.setEnabled(false);
+                }
+            });
 
             xPos++;
             setConstraints(xPos, yPos, 1, 1);
@@ -176,7 +198,12 @@ public class GUI extends JFrame implements WindowListener{
 
             // Create the set voltage button to the right
             setVoltageButton = new JButton("Set Voltage");
-            setVoltageButton.addActionListener(e -> setVoltageButtonClicked());
+            setVoltageButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    setVoltageButtonClicked();
+                }
+            });
 
             xPos++;
             setConstraints(xPos, yPos, 2, 1);
@@ -186,7 +213,12 @@ public class GUI extends JFrame implements WindowListener{
 
             // Create an abort condition button exactly on top of the set voltage button
             abortConditionButton = new JButton("Abort!");
-            abortConditionButton.addActionListener(e -> hvState.abortConditioning());
+            abortConditionButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    hvState.abortConditioning();
+                }
+            });
             abortConditionButton.setVisible(false);
 
             setConstraints(xPos, yPos, 2, 1);
@@ -258,7 +290,12 @@ public class GUI extends JFrame implements WindowListener{
 
             // Create the ld on button to the right
             ldOnButton = new JToggleButton("On", false);
-            ldOnButton.addActionListener(e -> ldState.setEnabled(true));
+            ldOnButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    ldState.setEnabled(true);
+                }
+            });
 
             xPos+=2;
             setConstraints(xPos, yPos, 1, 1);
@@ -268,7 +305,12 @@ public class GUI extends JFrame implements WindowListener{
 
             // Create the hv off button to the right
             ldOffButton = new JToggleButton("Off", false);
-            ldOffButton.addActionListener(e -> ldState.setEnabled(false));
+            ldOffButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    ldState.setEnabled(false);
+                }
+            });
 
 
             xPos++;
@@ -279,7 +321,12 @@ public class GUI extends JFrame implements WindowListener{
 
             // Create the set ld current button to the right
             setLdCurrentButton = new JButton("Set Current");
-            setLdCurrentButton.addActionListener(e -> setDiodeCurrentButtonClicked());
+            setLdCurrentButton.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    setDiodeCurrentButtonClicked();
+                }
+            });
 
 
             xPos++;
@@ -1147,7 +1194,12 @@ public class GUI extends JFrame implements WindowListener{
 
 
                 // Start the timer
-                rampVoltageTimer = new Timer(dt, e -> hvState.rampVoltage(dV));
+                rampVoltageTimer = new Timer(dt, new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        hvState.rampVoltage(dV);
+                    }
+                });
             }
         }
 
