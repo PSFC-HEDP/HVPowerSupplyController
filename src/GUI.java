@@ -1151,6 +1151,10 @@ public class GUI extends JFrame implements WindowListener{
                 this.voltageSetting = 0.0;
                 this.currentSetting = 0.0;
             }
+            // If enabled, set the current to it's max
+            else{
+                this.currentSetting = Constants.getPowerSupplyMaxCurrent();
+            }
 
             // On button should be selected but not enabled when the system is "on"
             hvOnButton.setEnabled(!enabled);
@@ -1165,6 +1169,9 @@ public class GUI extends JFrame implements WindowListener{
 
             // Configuration options should not be enabled when the system is "on"
             configurationMenuItem.setEnabled(!enabled);
+
+            // Quick Conditioning should be enabled when the system is "on"
+            quickConditionMenu.setEnabled(enabled);
         }
 
         void startConditioning(int conditionTime){

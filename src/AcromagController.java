@@ -166,7 +166,7 @@ class AcromagController {
         current = Math.min(Constants.getLaserDiodeMaxCurrent(), current);
 
         double acromagVoltage = current * Constants.getVoltagePerLdCurrent();
-        setChannelOutputVoltage(Configuration.getCurrentControlChannel(), acromagVoltage);
+        setChannelOutputVoltage(Configuration.getLdCurrentControlChannel(), acromagVoltage);
     }
 
 
