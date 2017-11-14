@@ -1207,6 +1207,9 @@ public class GUI extends JFrame implements WindowListener{
                         hvState.rampVoltage(dV);
                     }
                 });
+
+                rampVoltageTimer.setDelay(dt);
+                rampVoltageTimer.start();
             }
         }
 
